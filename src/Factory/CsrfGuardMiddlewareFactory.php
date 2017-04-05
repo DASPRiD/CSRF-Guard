@@ -14,16 +14,17 @@ final class CsrfGuardMiddlewareFactory
 {
     public function __invoke(ContainerInterface $container) : CsrfGuardMiddleware
     {
-        $config = $container->get('config')['csrf_guard']['middleware'];
+        $reader = new TreeReader($container->get('config'));
+        $config = $reader->getChildren('csrf_guard')->getChildren('middleware');
 
         return new CsrfGuardMiddleware(
             $container->get(CookieSettings::class),
-            $config['uuid_attribute_name'],
-            $config['token_post_name'],
+            $config->getString('uuid_attribute_name'),
+            $config->getString('token_post_name'),
             $container->get(JwtAdapterInterface::class),
             $container->get(CsrfTokenManagerInterface::class),
             new SystemClock(),
-            $container->get($config['failure_middleware'])
+            $container->get($config->getString('failure_middleware'))
         );
     }
 }

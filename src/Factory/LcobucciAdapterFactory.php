@@ -12,13 +12,15 @@ final class LcobucciAdapterFactory
 {
     public function __invoke(ContainerInterface $container) : JwtAdapterInterface
     {
-        $config = $container->get('config')['csrf_guard']['jwt'];
+        $reader = new TreeReader($container->get('config'));
+        $config = $reader->getChildren('csrf_guard')->getChildren('csrf');
+        $signer = $config->getString('signer');
 
         return new LcobucciAdapter(
             new Parser(),
-            new $config['signer'](),
-            $config['signature_key'],
-            $config['verification_key'],
+            new $signer(),
+            $config->getString('signature_key'),
+            $config->getString('verification_key'),
             new SystemClock()
         );
     }

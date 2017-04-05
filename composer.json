@@ -9,9 +9,12 @@
         "http-interop/http-middleware": "^0.4",
         "ramsey/uuid": "^3.6",
         "lcobucci/jwt": "^3.2",
-        "cultuurnet/clock": "^1.0"
+        "cultuurnet/clock": "^1.0",
+        "dasprid/treereader": "^1.0"
     },
     "require-dev": {
+        "phpunit/phpunit": "^6.0",
+        "squizlabs/php_codesniffer": "^2.8",
         "psr/container": "^1.0"
     },
     "suggest": {

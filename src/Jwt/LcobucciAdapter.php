@@ -1,11 +1,10 @@
 <?php
 declare(strict_types = 1);
 
-namespace DASPRiD\CsrfGuard;
+namespace DASPRiD\CsrfGuard\Jwt;
 
 use CultuurNet\Clock\Clock;
 use DASPRiD\CsrfGuard\Jwt\Exception\InvalidTokenException;
-use DASPRiD\CsrfGuard\Jwt\JwtAdapterInterface;
 use InvalidArgumentException;
 use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Parser;

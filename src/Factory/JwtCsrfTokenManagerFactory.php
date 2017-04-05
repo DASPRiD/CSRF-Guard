@@ -12,11 +12,12 @@ final class JwtCsrfTokenManagerFactory
 {
     public function __invoke(ContainerInterface $container) : CsrfTokenManagerInterface
     {
-        $config = $container->get('config')['csrf_guard']['csrf'];
+        $reader = new TreeReader($container->get('config'));
+        $config = $reader->getChildren('csrf_guard')->getChildren('csrf');
 
         return new JwtCsrfTokenManager(
             $container->get(JwtAdapterInterface::class),
-            $config['lifetime']
+            $config->getInt('lifetime')
         );
     }
 }
