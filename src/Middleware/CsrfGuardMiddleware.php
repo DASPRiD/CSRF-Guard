@@ -81,8 +81,8 @@ final class CsrfGuardMiddleware implements MiddlewareInterface
             $claims = $this->jwtAdapter->getClaims($uuidToken);
             $uuid = Uuid::fromString($claims['uuid']);
 
-            if (
-                $claims['iat'] + $this->cookieSettings->getRefreshTime() < $this->clock->getDateTime()->getTimestamp()
+            if ($claims['iat'] + $this->cookieSettings->getRefreshTime()
+                < $this->clock->getDateTime()->getTimestamp()
             ) {
                 $setCookie = true;
             }
