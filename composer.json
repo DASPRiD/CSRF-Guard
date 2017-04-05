@@ -3,7 +3,7 @@
     "description": "PSR-7 CSRF guard",
     "type": "library",
     "require": {
-        "php": "^7.0",
+        "php": "^7.1",
         "psr/http-message": "^1.0",
         "dflydev/fig-cookies": "^1.0",
         "http-interop/http-middleware": "^0.4",
