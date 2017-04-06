@@ -20,16 +20,19 @@ final class ConfigProviderTest extends TestCase
         $this->assertArrayHasKey('dependencies', $config);
         $dependencies = $config['dependencies'];
 
-        $this->assertArrayHasKey(JwtAdapterInterface::class, $dependencies);
-        $this->assertTrue(class_exists($dependencies[JwtAdapterInterface::class]));
+        $this->assertArrayHasKey('factories', $dependencies);
+        $factories = $dependencies['factories'];
 
-        $this->assertArrayHasKey(CsrfTokenManagerInterface::class, $dependencies);
-        $this->assertTrue(class_exists($dependencies[CsrfTokenManagerInterface::class]));
+        $this->assertArrayHasKey(JwtAdapterInterface::class, $factories);
+        $this->assertTrue(class_exists($factories[JwtAdapterInterface::class]));
 
-        $this->assertArrayHasKey(CookieSettings::class, $dependencies);
-        $this->assertTrue(class_exists($dependencies[CookieSettings::class]));
+        $this->assertArrayHasKey(CsrfTokenManagerInterface::class, $factories);
+        $this->assertTrue(class_exists($factories[CsrfTokenManagerInterface::class]));
 
-        $this->assertArrayHasKey(CsrfGuardMiddleware::class, $dependencies);
-        $this->assertTrue(class_exists($dependencies[CsrfGuardMiddleware::class]));
+        $this->assertArrayHasKey(CookieSettings::class, $factories);
+        $this->assertTrue(class_exists($factories[CookieSettings::class]));
+
+        $this->assertArrayHasKey(CsrfGuardMiddleware::class, $factories);
+        $this->assertTrue(class_exists($factories[CsrfGuardMiddleware::class]));
     }
 }

@@ -18,10 +18,12 @@ final class ConfigProvider
     {
         return [
             'dependencies' => [
-                JwtAdapterInterface::class => LcobucciAdapterFactory::class,
-                CsrfTokenManagerInterface::class => JwtCsrfTokenManagerFactory::class,
-                CookieSettings::class => CookieSettingsFactory::class,
-                CsrfGuardMiddleware::class => CsrfGuardMiddlewareFactory::class,
+                'factories' => [
+                    JwtAdapterInterface::class => LcobucciAdapterFactory::class,
+                    CsrfTokenManagerInterface::class => JwtCsrfTokenManagerFactory::class,
+                    CookieSettings::class => CookieSettingsFactory::class,
+                    CsrfGuardMiddleware::class => CsrfGuardMiddlewareFactory::class,
+                ],
             ],
         ];
     }
