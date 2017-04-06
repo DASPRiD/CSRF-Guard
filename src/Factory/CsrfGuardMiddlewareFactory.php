@@ -16,7 +16,7 @@ final class CsrfGuardMiddlewareFactory
 {
     public function __invoke(ContainerInterface $container) : CsrfGuardMiddleware
     {
-        $reader = new TreeReader($container->get('config'));
+        $reader = new TreeReader($container->get('config'), 'config');
         $config = $reader->getChildren('csrf_guard')->getChildren('middleware');
 
         return new CsrfGuardMiddleware(

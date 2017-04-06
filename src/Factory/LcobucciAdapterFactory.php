@@ -15,7 +15,7 @@ final class LcobucciAdapterFactory
 {
     public function __invoke(ContainerInterface $container) : JwtAdapterInterface
     {
-        $reader = new TreeReader($container->get('config'));
+        $reader = new TreeReader($container->get('config'), 'config');
         $config = $reader->getChildren('csrf_guard')->getChildren('jwt');
         $signer = $config->getString('signer');
 

@@ -11,7 +11,7 @@ final class CookieSettingsFactory
 {
     public function __invoke(ContainerInterface $container) : CookieSettings
     {
-        $reader = new TreeReader($container->get('config'));
+        $reader = new TreeReader($container->get('config'), 'config');
         $config = $reader->getChildren('csrf_guard')->getChildren('cookie');
 
         return new CookieSettings(
