@@ -1,11 +1,12 @@
 <?php
 declare(strict_types = 1);
 
-namespace DASPRiD\CsrfGuard;
+namespace DASPRiD\CsrfGuard\Factory;
 
 use DASPRiD\CsrfGuard\CsrfToken\CsrfTokenManagerInterface;
 use DASPRiD\CsrfGuard\CsrfToken\JwtCsrfTokenManager;
 use DASPRiD\CsrfGuard\Jwt\JwtAdapterInterface;
+use DASPRiD\TreeReader\TreeReader;
 use Psr\Container\ContainerInterface;
 
 final class JwtCsrfTokenManagerFactory

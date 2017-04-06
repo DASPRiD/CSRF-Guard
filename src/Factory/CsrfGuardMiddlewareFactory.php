@@ -1,13 +1,15 @@
 <?php
 declare(strict_types = 1);
 
-namespace DASPRiD\CsrfGuard;
+namespace DASPRiD\CsrfGuard\Factory;
 
 use CultuurNet\Clock\SystemClock;
 use DASPRiD\CsrfGuard\CsrfToken\CsrfTokenManagerInterface;
 use DASPRiD\CsrfGuard\Jwt\JwtAdapterInterface;
 use DASPRiD\CsrfGuard\Middleware\CookieSettings;
 use DASPRiD\CsrfGuard\Middleware\CsrfGuardMiddleware;
+use DASPRiD\TreeReader\TreeReader;
+use DateTimeZone;
 use Psr\Container\ContainerInterface;
 
 final class CsrfGuardMiddlewareFactory
@@ -23,7 +25,7 @@ final class CsrfGuardMiddlewareFactory
             $config->getString('token_post_name'),
             $container->get(JwtAdapterInterface::class),
             $container->get(CsrfTokenManagerInterface::class),
-            new SystemClock(),
+            new SystemClock(new DateTimeZone('UTC')),
             $container->get($config->getString('failure_middleware'))
         );
     }

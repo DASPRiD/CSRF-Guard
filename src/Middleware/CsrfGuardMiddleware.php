@@ -73,11 +73,11 @@ final class CsrfGuardMiddleware implements MiddlewareInterface
 
     public function process(ServerRequestInterface $request, DelegateInterface $delegate) : ResponseInterface
     {
-        $requestCookie = FigRequestCookies::get($request, 'csrfUuid');
+        $requestCookie = FigRequestCookies::get($request, $this->cookieSettings->getName());
         $uuidToken = $requestCookie->getValue($this->cookieSettings->getName());
         $setCookie = false;
 
-        if ($this->jwtAdapter->validateToken($uuidToken)) {
+        if (is_string($uuidToken) && $this->jwtAdapter->validateToken($uuidToken)) {
             $claims = $this->jwtAdapter->getClaims($uuidToken);
             $uuid = Uuid::fromString($claims['uuid']);
 

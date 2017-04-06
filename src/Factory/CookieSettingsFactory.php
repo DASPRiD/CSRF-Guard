@@ -1,7 +1,7 @@
 <?php
 declare(strict_types = 1);
 
-namespace DASPRiD\CsrfGuard;
+namespace DASPRiD\CsrfGuard\Factory;
 
 use DASPRiD\CsrfGuard\Middleware\CookieSettings;
 use DASPRiD\TreeReader\TreeReader;
