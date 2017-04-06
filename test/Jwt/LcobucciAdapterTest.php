@@ -8,6 +8,7 @@ use DASPRiD\CsrfGuard\Jwt\Exception\InvalidTokenException;
 use DASPRiD\CsrfGuard\Jwt\LcobucciAdapter;
 use DateTimeImmutable;
 use InvalidArgumentException;
+use Lcobucci\JWT\Claim\Basic;
 use Lcobucci\JWT\Claim\GreaterOrEqualsTo;
 use Lcobucci\JWT\Parser;
 use Lcobucci\JWT\Signature;
@@ -186,7 +187,7 @@ final class LcobucciAdapterTest extends TestCase
                     'exp',
                     (new DateTimeImmutable('2018-01-01 00:00:00 UTC'))->getTimestamp()
                 ),
-                'baz' => 'bat',
+                'baz' => new Basic('baz', 'bat'),
             ],
             new Signature('foo_signature')
         ));

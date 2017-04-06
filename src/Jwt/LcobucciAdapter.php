@@ -81,7 +81,13 @@ final class LcobucciAdapter implements JwtAdapterInterface
             throw InvalidTokenException::fromInvalidToken($token);
         }
 
-        return $tokenInstance->getClaims();
+        $claims = [];
+
+        foreach ($tokenInstance->getClaims() as $key => $claim) {
+            $claims[$key] = $claim->getValue();
+        }
+
+        return $claims;
     }
 
     private function getTokenInstance(string $token) : ?Token
