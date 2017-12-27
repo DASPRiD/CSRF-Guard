@@ -3,40 +3,20 @@ declare(strict_types = 1);
 
 namespace DASPRiD\CsrfGuard\Middleware;
 
-use CultuurNet\Clock\Clock;
 use DASPRiD\CsrfGuard\CsrfToken\CsrfTokenManagerInterface;
-use DASPRiD\CsrfGuard\Jwt\JwtAdapterInterface;
-use Dflydev\FigCookies\FigRequestCookies;
-use Dflydev\FigCookies\FigResponseCookies;
-use Dflydev\FigCookies\SetCookie;
+use DASPRiD\Pikkuleipa\Cookie;
+use DASPRiD\Pikkuleipa\CookieManagerInterface;
 use Interop\Http\ServerMiddleware\DelegateInterface;
 use Interop\Http\ServerMiddleware\MiddlewareInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use Ramsey\Uuid\Uuid;
-use Ramsey\Uuid\UuidInterface;
 
 final class CsrfGuardMiddleware implements MiddlewareInterface
 {
     /**
-     * @var CookieSettings
+     * @var CookieManagerInterface
      */
-    private $cookieSettings;
-
-    /**
-     * @var string
-     */
-    private $uuidAttributeName;
-
-    /**
-     * @var string
-     */
-    private $tokenPostName;
-
-    /**
-     * @var JwtAdapterInterface
-     */
-    private $jwtAdapter;
+    private $cookieManager;
 
     /**
      * @var CsrfTokenManagerInterface
@@ -44,101 +24,121 @@ final class CsrfGuardMiddleware implements MiddlewareInterface
     private $csrfTokenManager;
 
     /**
-     * @var Clock
-     */
-    private $clock;
-
-    /**
      * @var MiddlewareInterface
      */
     private $failureMiddleware;
 
+    /**
+     * @var string
+     */
+    private $cookieName;
+
+    /**
+     * @var string
+     */
+    private $tokenAttributeName;
+
+    /**
+     * @var string
+     */
+    private $requestTokenName;
+
+    /**
+     * @var PublicKeyProviderInterface|null
+     */
+    private $publicKeyProvider;
+
     public function __construct(
-        CookieSettings $cookieSettings,
-        string $uuidAttributeName,
-        string $tokenPostName,
-        JwtAdapterInterface $jwtAdapter,
+        CookieManagerInterface $cookieManager,
         CsrfTokenManagerInterface $csrfTokenManager,
-        Clock $clock,
-        MiddlewareInterface $failureMiddleware
+        MiddlewareInterface $failureMiddleware,
+        string $cookieName,
+        string $tokenAttributeName,
+        string $requestTokenName,
+        ?PublicKeyProviderInterface $publicKeyProvider = null
     ) {
-        $this->cookieSettings = $cookieSettings;
-        $this->uuidAttributeName = $uuidAttributeName;
-        $this->tokenPostName = $tokenPostName;
-        $this->jwtAdapter = $jwtAdapter;
+        $this->cookieManager = $cookieManager;
         $this->csrfTokenManager = $csrfTokenManager;
-        $this->clock = $clock;
         $this->failureMiddleware = $failureMiddleware;
+        $this->cookieName = $cookieName;
+        $this->tokenAttributeName = $tokenAttributeName;
+        $this->requestTokenName = $requestTokenName;
+        $this->publicKeyProvider = $publicKeyProvider;
     }
 
     public function process(ServerRequestInterface $request, DelegateInterface $delegate) : ResponseInterface
     {
-        $requestCookie = FigRequestCookies::get($request, $this->cookieSettings->getName());
-        $uuidToken = $requestCookie->getValue($this->cookieSettings->getName());
-        $setCookie = false;
+        $publicKey = null;
+        $providerKeyUsed = true;
 
-        if (is_string($uuidToken) && $this->jwtAdapter->validateToken($uuidToken)) {
-            $claims = $this->jwtAdapter->getClaims($uuidToken);
-            $uuid = Uuid::fromString($claims['uuid']);
+        if (null !== $this->publicKeyProvider) {
+            $publicKey = $this->publicKeyProvider->__invoke();
+        }
 
-            if ($claims['iat'] + $this->cookieSettings->getRefreshTime()
-                < $this->clock->getDateTime()->getTimestamp()
-            ) {
-                $setCookie = true;
+        if (null === $publicKey) {
+            $providerKeyUsed = false;
+            $cookie = $this->cookieManager->getCookie($request, $this->cookieName);
+            $publicKey = $cookie->get('publicKey');
+
+            if (! is_string($publicKey)) {
+                $publicKey = bin2hex(random_bytes(32));
+            }
+        }
+
+        $token = $this->csrfTokenManager->generateToken($publicKey);
+        $requestWithToken = $request->withAttribute($this->tokenAttributeName, $token);
+
+        if (! in_array($request->getMethod(), ['POST', 'PUT', 'DELETE'])) {
+            return $this->decorateResponse(
+                $delegate->process($requestWithToken),
+                $publicKey,
+                $providerKeyUsed
+            );
+        }
+
+        $requestToken = null;
+
+        if ('application/json' === $request->getHeaderLine('content-type')) {
+            $data = json_decode((string) $request->getBody(), true);
+
+            if (is_array($data) && is_string($data[$this->requestTokenName] ?? null)) {
+                $requestToken = $data[$this->requestTokenName];
             }
         } else {
-            $uuid = Uuid::uuid4();
-            $setCookie = true;
+            $data = $request->getParsedBody();
+
+            if (is_array($data) && is_string($data[$this->requestTokenName] ?? null)) {
+                $requestToken = $data[$this->requestTokenName];
+            }
         }
 
-        $requestWithUuid = $request->withAttribute($this->uuidAttributeName, $uuid);
-
-        if ('POST' !== $request->getMethod()) {
+        if (! is_string($requestToken) || ! $this->csrfTokenManager->verifyToken($requestToken, $publicKey)) {
             return $this->decorateResponse(
-                $delegate->process($requestWithUuid),
-                $uuid,
-                $setCookie
+                $this->failureMiddleware->process($requestWithToken, $delegate),
+                $publicKey,
+                $providerKeyUsed
             );
         }
 
-        $postData = $request->getParsedBody();
-
-        if (!array_key_exists($this->tokenPostName, $postData)
-            || !is_string($postData[$this->tokenPostName])
-            || !$this->csrfTokenManager->verifyToken($postData[$this->tokenPostName], $uuid)
-        ) {
-            return $this->decorateResponse(
-                $this->failureMiddleware->process($requestWithUuid, $delegate),
-                $uuid,
-                $setCookie
-            );
-        }
-
-        return $this->decorateResponse($delegate->process($requestWithUuid), $uuid, $setCookie);
+        return $this->decorateResponse(
+            $delegate->process($requestWithToken),
+            $publicKey,
+            $providerKeyUsed
+        );
     }
 
     private function decorateResponse(
         ResponseInterface $response,
-        UuidInterface $uuid,
-        bool $setCookie
+        string $publicKey,
+        bool $providerKeyUsed
     ) : ResponseInterface {
-        if (!$setCookie) {
+        if ($providerKeyUsed) {
             return $response;
         }
 
-        $token = $this->jwtAdapter->createToken(['uuid' => $uuid->toString()], $this->cookieSettings->getLifetime());
+        $cookie = new Cookie($this->cookieName);
+        $cookie->set('publicKey', $publicKey);
 
-        $responseCookie = SetCookie::create($this->cookieSettings->getName())
-            ->withPath($this->cookieSettings->getPath())
-            ->withSecure($this->cookieSettings->getSecure())
-            ->withHttpOnly(true)
-            ->withValue($token)
-            ->withExpires($this->clock->getDateTime()->getTimestamp() + $this->cookieSettings->getLifetime())
-        ;
-
-        return FigResponseCookies::set(
-            $response,
-            $responseCookie
-        );
+        return $this->cookieManager->setCookie($response, $cookie);
     }
 }

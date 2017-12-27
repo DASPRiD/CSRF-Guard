@@ -1,25 +1,20 @@
 <?php
 return [
+    'pikkuleipa' => [
+        'cookie_settings' => [
+            'csrf_guard' => [
+                'path' => '/',
+                'secure' => false,
+                'lifetime' => 2592000,
+            ],
+        ],
+    ],
     'csrf_guard' => [
-        'cookie' => [
-            'name' => 'csrf-uuid',
-            'path' => '/',
-            'secure' => false,
-            'lifetime' => 3600 * 24,
-            'refresh_time' => 3600,
-        ],
-        'csrf' => [
-            'lifetime' => 3600,
-        ],
-        'jwt' => [
-            'signer' => Lcobucci\JWT\Signer\Hmac\Sha256::class,
-            'signature_key' => 'foobar',
-            'verification_key' => 'foobar',
-        ],
-        'middleware' => [
-            'uuid_attribute_name' => 'csrf_uuid',
-            'token_post_name' => 'csrf_token',
-            'failure_middleware' => Some\Csrf\FailureMiddleware::class,
-        ],
+        'private_key' => 'some_private_key',
+        'cookie_name' => 'csrf_guard',
+        'token_attribute_name' => 'csrf_token',
+        'request_token_name' => 'csrf_token',
+        'failure_middleware' => Some\Csrf\FailureMiddleware::class,
+        'public_key_provider' => Some\PublicKey\Provider::class, // or null
     ],
 ];

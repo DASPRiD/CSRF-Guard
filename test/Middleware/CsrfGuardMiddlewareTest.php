@@ -3,67 +3,69 @@ declare(strict_types = 1);
 
 namespace DASPRiD\CsrfGuardTest\Middleware;
 
-use CultuurNet\Clock\FrozenClock;
 use DASPRiD\CsrfGuard\CsrfToken\CsrfTokenManagerInterface;
-use DASPRiD\CsrfGuard\Jwt\JwtAdapterInterface;
-use DASPRiD\CsrfGuard\Middleware\CookieSettings;
 use DASPRiD\CsrfGuard\Middleware\CsrfGuardMiddleware;
-use DateTimeImmutable;
+use DASPRiD\CsrfGuard\Middleware\PublicKeyProviderInterface;
+use DASPRiD\Pikkuleipa\Cookie;
+use DASPRiD\Pikkuleipa\CookieManagerInterface;
 use Interop\Http\ServerMiddleware\DelegateInterface;
 use Interop\Http\ServerMiddleware\MiddlewareInterface;
-use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use Prophecy\Argument;
-use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use Ramsey\Uuid\Uuid;
-use Ramsey\Uuid\UuidInterface;
 use Zend\Diactoros\Response\EmptyResponse;
 use Zend\Diactoros\ServerRequest;
+use Zend\Diactoros\Stream;
 
 final class CsrfGuardMiddlewareTest extends TestCase
 {
-    public function testNewUuidCookieIsSetIfCookieIsNotPresent()
-    {
-        $response = $this->createCsrfGuardMiddleware()->process(
-            $this->createServerRequest(null, false),
-            $this->createDelegate()
-        );
-        $this->assertSame(200, $response->getStatusCode());
-        $this->assertSetCookieHeader($response);
-    }
-
-    public function testNewUuidCookieIsSetIfCookieContainsInvalidToken()
-    {
-        $response = $this->createCsrfGuardMiddleware(false)->process(
-            $this->createServerRequest(),
-            $this->createDelegate()
-        );
-        $this->assertSame(200, $response->getStatusCode());
-        $this->assertSetCookieHeader($response);
-    }
-
-    public function testNewUuidCookieIsSetAfterRefreshTime()
+    public function testNewPublicKeyCookieIsSetWithoutPublicKeyProvider() : void
     {
         $response = $this->createCsrfGuardMiddleware(true, true)->process(
             $this->createServerRequest(),
             $this->createDelegate()
         );
         $this->assertSame(200, $response->getStatusCode());
-        $this->assertSetCookieHeader($response);
+        $this->assertRegExp('([a-z0-9]{64})', $response->getHeaderLine('cookie'));
     }
 
-    public function testNewUuidCookieIsNotSetBeforeRefreshTime()
+    public function testExistingPublicKeyCookieIsSetWithoutPublicKeyProvider() : void
     {
         $response = $this->createCsrfGuardMiddleware()->process(
             $this->createServerRequest(),
             $this->createDelegate()
         );
         $this->assertSame(200, $response->getStatusCode());
-        $this->assertSame('', $response->getHeaderLine('Set-Cookie'));
+        $this->assertSame('public_key', $response->getHeaderLine('cookie'));
     }
 
-    public function testFailureMiddlewareIsCalledWithoutCsrfToken()
+    public function testNewPublicKeyCookieIsSetWithPublicKeyProviderReturningNull() : void
+    {
+        $publicKeyProvider = $this->prophesize(PublicKeyProviderInterface::class);
+        $publicKeyProvider->__invoke()->willReturn(null);
+
+        $response = $this->createCsrfGuardMiddleware(true, true, $publicKeyProvider->reveal())->process(
+            $this->createServerRequest(),
+            $this->createDelegate()
+        );
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertRegExp('([a-z0-9]{64})', $response->getHeaderLine('cookie'));
+    }
+
+    public function testNewPublicKeyCookieIsNotSetWithPublicKeyProviderReturningKey() : void
+    {
+        $publicKeyProvider = $this->prophesize(PublicKeyProviderInterface::class);
+        $publicKeyProvider->__invoke()->willReturn('public_key');
+
+        $response = $this->createCsrfGuardMiddleware(true, true, $publicKeyProvider->reveal())->process(
+            $this->createServerRequest(),
+            $this->createDelegate()
+        );
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('', $response->getHeaderLine('cookie'));
+    }
+
+    public function testFailureMiddlewareIsCalledWithoutCsrfToken() : void
     {
         $response = $this->createCsrfGuardMiddleware()->process(
             $this->createServerRequest([]),
@@ -72,94 +74,106 @@ final class CsrfGuardMiddlewareTest extends TestCase
         $this->assertSame(400, $response->getStatusCode());
     }
 
-    public function testFailureMiddlewareIsCalledWithNonStringCsrfToken()
+    public function testFailureMiddlewareIsCalledWithNonStringCsrfToken() : void
     {
         $response = $this->createCsrfGuardMiddleware()->process(
-            $this->createServerRequest(['test_csrf_token' => 1]),
+            $this->createServerRequest(['csrf_token' => 1]),
             $this->createDelegate()
         );
         $this->assertSame(400, $response->getStatusCode());
     }
 
-    public function testFailureMiddlewareIsCalledWithInvalidCsrfToken()
+    public function testFailureMiddlewareIsCalledWithInvalidCsrfToken() : void
     {
-        $response = $this->createCsrfGuardMiddleware(true, false, false)->process(
-            $this->createServerRequest(['test_csrf_token' => 'csrf_token_value']),
+        $response = $this->createCsrfGuardMiddleware(false)->process(
+            $this->createServerRequest(['csrf_token' => 'csrf_token']),
             $this->createDelegate()
         );
         $this->assertSame(400, $response->getStatusCode());
     }
 
-    public function testFailureMiddlewareIsNotCalledWithValidCsrfToken()
+    public function testFailureMiddlewareIsNotCalledWithValidCsrfToken() : void
     {
         $response = $this->createCsrfGuardMiddleware()->process(
-            $this->createServerRequest(['test_csrf_token' => 'csrf_token_value']),
+            $this->createServerRequest(['csrf_token' => 'csrf_token']),
+            $this->createDelegate()
+        );
+        $this->assertSame(200, $response->getStatusCode());
+    }
+
+    public function testValidTokenFromJsonRequest() : void
+    {
+        $response = $this->createCsrfGuardMiddleware()->process(
+            $this->createServerRequest(['csrf_token' => 'csrf_token'], true),
             $this->createDelegate()
         );
         $this->assertSame(200, $response->getStatusCode());
     }
 
     private function createCsrfGuardMiddleware(
-        bool $validUuidToken = true,
-        bool $expiredUuidToken = false,
-        bool $validCsrfToken = true
+        bool $validCsrfToken = true,
+        bool $newPublicKey = false,
+        ?PublicKeyProviderInterface $publicKeyProvider = null
     ) : CsrfGuardMiddleware {
-        $jwtAdapter = $this->prophesize(JwtAdapterInterface::class);
-        $jwtAdapter->createToken(Argument::that(function (array $claims) : bool {
-            if (!array_key_exists('uuid', $claims)) {
-                return false;
+        $cookie = new Cookie('csrf_guard');
+
+        if (! $newPublicKey) {
+            $cookie->set('publicKey', 'public_key');
+        }
+
+        $cookieManager = $this->prophesize(CookieManagerInterface::class);
+        $cookieManager->setCookie(Argument::any(), Argument::that(function (Cookie $cookie) use ($newPublicKey) : bool {
+            if ($newPublicKey) {
+                return 1 === preg_match('(^[a-z0-9]{64}$)', $cookie->get('publicKey'));
             }
 
-            try {
-                Uuid::fromString($claims['uuid']);
-            } catch (InvalidArgumentException $e) {
-                return false;
-            }
-
-            return true;
-        }), 100)->willReturn('jwt_token');
-
-        $jwtAdapter->validateToken('foobar')->willReturn($validUuidToken);
-        $jwtAdapter->getClaims('foobar')->willReturn([
-            'iat' => (
-                new DateTimeImmutable(sprintf('201%d-01-01 00:00:00 UTC', $expiredUuidToken ? 6 : 8))
-            )->getTimestamp(),
-            'uuid' => '5ab45c38-ea1b-4e9f-9a8e-00898a4d262f',
-        ]);
+            return 'public_key' === $cookie->get('publicKey');
+        }))->will(function (array $arguments) {
+            return $arguments[0]->withHeader('cookie', $arguments[1]->get('publicKey'));
+        });
+        $cookieManager->getCookie(Argument::any(), 'csrf_guard')->willReturn($cookie);
 
         $csrfTokenManager = $this->prophesize(CsrfTokenManagerInterface::class);
-        $csrfTokenManager->verifyToken('csrf_token_value', Argument::that(function (UuidInterface $uuid) : bool {
-            return $uuid->toString() === '5ab45c38-ea1b-4e9f-9a8e-00898a4d262f';
-        }))->willReturn($validCsrfToken);
+        $csrfTokenManager->generateToken(Argument::that(function (string $publicKey) : bool {
+            return 1 === preg_match('(^[a-z0-9]{64}$)', $publicKey) || 'public_key' === $publicKey;
+        }))->willReturn('csrf_token');
+        $csrfTokenManager->verifyToken('csrf_token', 'public_key')->willReturn($validCsrfToken);
 
         $failureMiddleware = $this->prophesize(MiddlewareInterface::class);
         $failureMiddleware->process(Argument::that(function (ServerRequestInterface $request) : bool {
-            return $request->getAttribute('test_uuid') instanceof UuidInterface;
+            return $request->getAttribute('csrf_token') === 'csrf_token';
         }), Argument::type(DelegateInterface::class))->willReturn(new EmptyResponse(400));
 
         return new CsrfGuardMiddleware(
-            new CookieSettings('test_uuid', '/test', false, 100, 10),
-            'test_uuid',
-            'test_csrf_token',
-            $jwtAdapter->reveal(),
+            $cookieManager->reveal(),
             $csrfTokenManager->reveal(),
-            new FrozenClock(new DateTimeImmutable('2017-01-01 00:00:00 UTC')),
-            $failureMiddleware->reveal()
+            $failureMiddleware->reveal(),
+            'csrf_guard',
+            'csrf_token',
+            'csrf_token',
+            $publicKeyProvider
         );
     }
 
-    private function createServerRequest(array $postData = null, bool $setCookie = true) : ServerRequestInterface
+    private function createServerRequest(array $postData = null, bool $json = false) : ServerRequestInterface
     {
+        $body = 'php://memory';
+
+        if ($json) {
+            $body = new Stream('php://memory', 'w+');
+            $body->write(json_encode($postData));
+        }
+
         return new ServerRequest(
             [],
             [],
             null,
             null === $postData ? 'GET' : 'POST',
-            'php://input',
-            $setCookie ? ['Cookie' => 'test_uuid=foobar'] : [],
-            $setCookie ? ['test_uuid' => 'foobar'] : [],
+            $body,
+            $json ? ['content-type' => 'application/json'] : [],
             [],
-            $postData
+            [],
+            $json ? null : $postData
         );
     }
 
@@ -167,17 +181,9 @@ final class CsrfGuardMiddlewareTest extends TestCase
     {
         $delegate = $this->prophesize(DelegateInterface::class);
         $delegate->process(Argument::that(function (ServerRequestInterface $request) : bool {
-            return $request->getAttribute('test_uuid') instanceof UuidInterface;
+            return $request->getAttribute('csrf_token') === 'csrf_token';
         }))->willReturn(new EmptyResponse(200));
 
         return $delegate->reveal();
-    }
-
-    private function assertSetCookieHeader(ResponseInterface $response)
-    {
-        $this->assertSame(
-            'test_uuid=jwt_token; Path=/test; Expires=Sun, 01 Jan 2017 00:01:40 GMT; HttpOnly',
-            $response->getHeaderLine('Set-Cookie')
-        );
     }
 }
