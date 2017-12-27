@@ -20,7 +20,7 @@ $ composer require dasprid/csrf-guard
 
 CSRF Guard is usable with any library implementing the interop middleware or PSR-15 standard. It comes with some
 pre-defined factories which utilize the PSR-11 container standard and a config provider which can be used with container
-implementations like Zend\ServiceManager. If you are using that or a similar containerimplementation together with
+implementations like Zend\ServiceManager. If you are using that or a similar container implementation together with
 Zend\Expressive, you can register your factories by simply having an autoloaded config file looking like this:
 
 ```php
@@ -32,19 +32,18 @@ Alternatively, you can register the factories manually in your container. After 
 in your container, which should return a config array. Again, when using Zend\Expressive, it should be enough to copy
 the `example-config.php` file from the `doc` directory to your autoload folder.
 
-The config example contains some sane defaults, yet you need to adjust at least the `signature_key` and
-`verification_key` in the `jwt` section. For the `Hmac` algorithm, those two values must be the same. You must also
-adjust the `failure_middleware` in the `middleware` section to point to a container key containing the middleware
-responsible for creating a response when the CSRF validation fails. That middleware could, for instance, display an
-error page or redirect the user somewhere else.
+The config example contains some sane defaults, yet you need to adjust at least the `private_key`. You must also
+adjust the `failure_middleware` to point to a container key containing the middleware responsible for creating a
+response when the CSRF validation fails. That middleware could, for instance, display an error page or redirect the user
+somewhere else.
 
-Finally, you need to add an CSRF token to every `POST` request you are sending to the server. When you have all
-factories registered, you can access the CSRF token manager via the
-`DASPRiD\CsrfGuard\CsrfToken\JwtCsrfTokenManager::class` key. The token manager has a method
-```generateToken($uuid)```, which takes the UUID which you can find as attribute in the server request object. If you
-haven't adjusted the config, it will be available through the `csrf_uuid` key. The method will return a string which
-you can then put into a hidden input, with the name `csrf_token`, if you haven't changed the name in the config.
+Finally, you need to add a CSRF token to every `POST`, `PUT` or `DELETE` request you are sending to the server. When you
+have all factories registered, you can access get the CSRF token through the request object through the key defiend in
+the config.
 
-To ease the creation of those hidden inputs, you may want to create a template extension or view helper (depending on
-the templating engine you use), which takes the UUID and passes it down to the token manager and then just returns the
-hidden input.
+## Public key providers
+
+As CSRF tokens are always created with both a public and a private key, the public key is, by default, generated for you
+automatically with a given lifetime. You can supply your own public key provider though, which could, for instance,
+return user ID as the public key. When your provider returns `null` instead of a string, the CSRF middleware will fall
+back to using a cookie. This is useful if you need CSRF tokens for users who aren't authenticated yet.
