@@ -13,6 +13,7 @@ use Interop\Http\ServerMiddleware\MiddlewareInterface;
 use PHPUnit\Framework\TestCase;
 use Prophecy\Argument;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 use Zend\Diactoros\Response\EmptyResponse;
 use Zend\Diactoros\ServerRequest;
 use Zend\Diactoros\Stream;
@@ -23,7 +24,7 @@ final class CsrfGuardMiddlewareTest extends TestCase
     {
         $response = $this->createCsrfGuardMiddleware(true, true)->process(
             $this->createServerRequest(),
-            $this->createDelegate()
+            $this->createFinalHandler()
         );
         $this->assertSame(200, $response->getStatusCode());
         $this->assertRegExp('([a-z0-9]{64})', $response->getHeaderLine('cookie'));
@@ -33,7 +34,7 @@ final class CsrfGuardMiddlewareTest extends TestCase
     {
         $response = $this->createCsrfGuardMiddleware()->process(
             $this->createServerRequest(),
-            $this->createDelegate()
+            $this->createFinalHandler()
         );
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame('public_key', $response->getHeaderLine('cookie'));
@@ -46,7 +47,7 @@ final class CsrfGuardMiddlewareTest extends TestCase
 
         $response = $this->createCsrfGuardMiddleware(true, true, $publicKeyProvider->reveal())->process(
             $this->createServerRequest(),
-            $this->createDelegate()
+            $this->createFinalHandler()
         );
         $this->assertSame(200, $response->getStatusCode());
         $this->assertRegExp('([a-z0-9]{64})', $response->getHeaderLine('cookie'));
@@ -59,7 +60,7 @@ final class CsrfGuardMiddlewareTest extends TestCase
 
         $response = $this->createCsrfGuardMiddleware(true, true, $publicKeyProvider->reveal())->process(
             $this->createServerRequest(),
-            $this->createDelegate()
+            $this->createFinalHandler()
         );
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame('', $response->getHeaderLine('cookie'));
@@ -69,7 +70,7 @@ final class CsrfGuardMiddlewareTest extends TestCase
     {
         $response = $this->createCsrfGuardMiddleware()->process(
             $this->createServerRequest([]),
-            $this->createDelegate()
+            $this->createFinalHandler()
         );
         $this->assertSame(400, $response->getStatusCode());
     }
@@ -78,7 +79,7 @@ final class CsrfGuardMiddlewareTest extends TestCase
     {
         $response = $this->createCsrfGuardMiddleware()->process(
             $this->createServerRequest(['csrf_token' => 1]),
-            $this->createDelegate()
+            $this->createFinalHandler()
         );
         $this->assertSame(400, $response->getStatusCode());
     }
@@ -87,7 +88,7 @@ final class CsrfGuardMiddlewareTest extends TestCase
     {
         $response = $this->createCsrfGuardMiddleware(false)->process(
             $this->createServerRequest(['csrf_token' => 'csrf_token']),
-            $this->createDelegate()
+            $this->createFinalHandler()
         );
         $this->assertSame(400, $response->getStatusCode());
     }
@@ -96,7 +97,7 @@ final class CsrfGuardMiddlewareTest extends TestCase
     {
         $response = $this->createCsrfGuardMiddleware()->process(
             $this->createServerRequest(['csrf_token' => 'csrf_token']),
-            $this->createDelegate()
+            $this->createFinalHandler()
         );
         $this->assertSame(200, $response->getStatusCode());
     }
@@ -105,7 +106,7 @@ final class CsrfGuardMiddlewareTest extends TestCase
     {
         $response = $this->createCsrfGuardMiddleware()->process(
             $this->createServerRequest(['csrf_token' => 'csrf_token'], true),
-            $this->createDelegate()
+            $this->createFinalHandler()
         );
         $this->assertSame(200, $response->getStatusCode());
     }
@@ -139,15 +140,15 @@ final class CsrfGuardMiddlewareTest extends TestCase
         }))->willReturn('csrf_token');
         $csrfTokenManager->verifyToken('csrf_token', 'public_key')->willReturn($validCsrfToken);
 
-        $failureMiddleware = $this->prophesize(MiddlewareInterface::class);
-        $failureMiddleware->process(Argument::that(function (ServerRequestInterface $request) : bool {
+        $failureHandler = $this->prophesize(RequestHandlerInterface::class);
+        $failureHandler->handle(Argument::that(function (ServerRequestInterface $request) : bool {
             return $request->getAttribute('csrf_token') === 'csrf_token';
-        }), Argument::type(DelegateInterface::class))->willReturn(new EmptyResponse(400));
+        }))->willReturn(new EmptyResponse(400));
 
         return new CsrfGuardMiddleware(
             $cookieManager->reveal(),
             $csrfTokenManager->reveal(),
-            $failureMiddleware->reveal(),
+            $failureHandler->reveal(),
             'csrf_guard',
             'csrf_token',
             'csrf_token',
@@ -177,13 +178,13 @@ final class CsrfGuardMiddlewareTest extends TestCase
         );
     }
 
-    private function createDelegate() : DelegateInterface
+    private function createFinalHandler() : RequestHandlerInterface
     {
-        $delegate = $this->prophesize(DelegateInterface::class);
-        $delegate->process(Argument::that(function (ServerRequestInterface $request) : bool {
+        $handler = $this->prophesize(RequestHandlerInterface::class);
+        $handler->handle(Argument::that(function (ServerRequestInterface $request) : bool {
             return $request->getAttribute('csrf_token') === 'csrf_token';
         }))->willReturn(new EmptyResponse(200));
 
-        return $delegate->reveal();
+        return $handler->reveal();
     }
 }

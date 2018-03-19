@@ -6,10 +6,10 @@ namespace DASPRiD\CsrfGuard\Middleware;
 use DASPRiD\CsrfGuard\CsrfToken\CsrfTokenManagerInterface;
 use DASPRiD\Pikkuleipa\Cookie;
 use DASPRiD\Pikkuleipa\CookieManagerInterface;
-use Interop\Http\ServerMiddleware\DelegateInterface;
-use Interop\Http\ServerMiddleware\MiddlewareInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
 final class CsrfGuardMiddleware implements MiddlewareInterface
 {
@@ -24,9 +24,9 @@ final class CsrfGuardMiddleware implements MiddlewareInterface
     private $csrfTokenManager;
 
     /**
-     * @var MiddlewareInterface
+     * @var RequestHandlerInterface
      */
-    private $failureMiddleware;
+    private $failureHandler;
 
     /**
      * @var string
@@ -51,7 +51,7 @@ final class CsrfGuardMiddleware implements MiddlewareInterface
     public function __construct(
         CookieManagerInterface $cookieManager,
         CsrfTokenManagerInterface $csrfTokenManager,
-        MiddlewareInterface $failureMiddleware,
+        RequestHandlerInterface $failureHandler,
         string $cookieName,
         string $tokenAttributeName,
         string $requestTokenName,
@@ -59,14 +59,14 @@ final class CsrfGuardMiddleware implements MiddlewareInterface
     ) {
         $this->cookieManager = $cookieManager;
         $this->csrfTokenManager = $csrfTokenManager;
-        $this->failureMiddleware = $failureMiddleware;
+        $this->failureHandler = $failureHandler;
         $this->cookieName = $cookieName;
         $this->tokenAttributeName = $tokenAttributeName;
         $this->requestTokenName = $requestTokenName;
         $this->publicKeyProvider = $publicKeyProvider;
     }
 
-    public function process(ServerRequestInterface $request, DelegateInterface $delegate) : ResponseInterface
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler) : ResponseInterface
     {
         $publicKey = null;
         $providerKeyUsed = true;
@@ -90,7 +90,7 @@ final class CsrfGuardMiddleware implements MiddlewareInterface
 
         if (! in_array($request->getMethod(), ['POST', 'PUT', 'DELETE'])) {
             return $this->decorateResponse(
-                $delegate->process($requestWithToken),
+                $handler->handle($requestWithToken),
                 $publicKey,
                 $providerKeyUsed
             );
@@ -114,14 +114,14 @@ final class CsrfGuardMiddleware implements MiddlewareInterface
 
         if (! is_string($requestToken) || ! $this->csrfTokenManager->verifyToken($requestToken, $publicKey)) {
             return $this->decorateResponse(
-                $this->failureMiddleware->process($requestWithToken, $delegate),
+                $this->failureHandler->handle($requestWithToken),
                 $publicKey,
                 $providerKeyUsed
             );
         }
 
         return $this->decorateResponse(
-            $delegate->process($requestWithToken),
+            $handler->handle($requestWithToken),
             $publicKey,
             $providerKeyUsed
         );

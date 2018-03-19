@@ -23,7 +23,7 @@ final class CsrfGuardMiddlewareFactory
         return new CsrfGuardMiddleware(
             $container->get(CookieManagerInterface::class),
             $container->get(CsrfTokenManagerInterface::class),
-            $container->get($config->getString('failure_middleware')),
+            $container->get($config->getString('failure_handler')),
             $config->getString('cookie_name'),
             $config->getString('token_attribute_name'),
             $config->getString('request_token_name'),

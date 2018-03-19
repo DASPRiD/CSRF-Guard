@@ -14,7 +14,7 @@ return [
         'cookie_name' => 'csrf_guard',
         'token_attribute_name' => 'csrf_token',
         'request_token_name' => 'csrf_token',
-        'failure_middleware' => Some\Csrf\FailureMiddleware::class,
+        'failure_handler' => Some\Csrf\FailureMiddleware::class,
         'public_key_provider' => Some\PublicKey\Provider::class, // or null
     ],
 ];

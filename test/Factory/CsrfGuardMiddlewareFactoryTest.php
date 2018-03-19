@@ -7,9 +7,9 @@ use DASPRiD\CsrfGuard\CsrfToken\CsrfTokenManagerInterface;
 use DASPRiD\CsrfGuard\Factory\CsrfGuardMiddlewareFactory;
 use DASPRiD\CsrfGuard\Middleware\PublicKeyProviderInterface;
 use DASPRiD\Pikkuleipa\CookieManagerInterface;
-use Interop\Http\ServerMiddleware\MiddlewareInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
 final class CsrfGuardMiddlewareFactoryTest extends TestCase
 {
@@ -21,7 +21,7 @@ final class CsrfGuardMiddlewareFactoryTest extends TestCase
                 'cookie_name' => 'csrf_guard',
                 'token_attribute_name' => 'csrf_token',
                 'request_token_name' => 'csrf_token',
-                'failure_middleware' => 'fmw',
+                'failure_handler' => 'fh',
                 'public_key_provider' => 'pkp',
             ],
         ]);
@@ -32,8 +32,8 @@ final class CsrfGuardMiddlewareFactoryTest extends TestCase
         $csrfTokenManager = $this->prophesize(CsrfTokenManagerInterface::class)->reveal();
         $container->get(CsrfTokenManagerInterface::class)->willReturn($csrfTokenManager);
 
-        $failureMiddleware = $this->prophesize(MiddlewareInterface::class)->reveal();
-        $container->get('fmw')->willReturn($failureMiddleware);
+        $failureHandler = $this->prophesize(RequestHandlerInterface::class)->reveal();
+        $container->get('fh')->willReturn($failureHandler);
 
         $publicKeyProvider = $this->prophesize(PublicKeyProviderInterface::class)->reveal();
         $container->get('pkp')->willReturn($publicKeyProvider);
@@ -44,7 +44,7 @@ final class CsrfGuardMiddlewareFactoryTest extends TestCase
         $this->assertAttributeSame('csrf_token', 'requestTokenName', $middleware);
         $this->assertAttributeSame($cookieManager, 'cookieManager', $middleware);
         $this->assertAttributeSame($csrfTokenManager, 'csrfTokenManager', $middleware);
-        $this->assertAttributeSame($failureMiddleware, 'failureMiddleware', $middleware);
+        $this->assertAttributeSame($failureHandler, 'failureHandler', $middleware);
         $this->assertAttributeSame($publicKeyProvider, 'publicKeyProvider', $middleware);
     }
 }
