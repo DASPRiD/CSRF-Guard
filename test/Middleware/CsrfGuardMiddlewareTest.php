@@ -8,8 +8,6 @@ use DASPRiD\CsrfGuard\Middleware\CsrfGuardMiddleware;
 use DASPRiD\CsrfGuard\Middleware\PublicKeyProviderInterface;
 use DASPRiD\Pikkuleipa\Cookie;
 use DASPRiD\Pikkuleipa\CookieManagerInterface;
-use Interop\Http\ServerMiddleware\DelegateInterface;
-use Interop\Http\ServerMiddleware\MiddlewareInterface;
 use PHPUnit\Framework\TestCase;
 use Prophecy\Argument;
 use Psr\Http\Message\ServerRequestInterface;
@@ -111,10 +109,33 @@ final class CsrfGuardMiddlewareTest extends TestCase
         $this->assertSame(200, $response->getStatusCode());
     }
 
+    public function excludePathProvider() : array
+    {
+        return [
+            ['/foo', true],
+            ['/foobar', true],
+            ['/bar/foobar', false],
+        ];
+    }
+
+    /**
+     * @dataProvider excludePathProvider
+     */
+    public function testExcludePath(string $excludePath, bool $success) : void
+    {
+        $response = $this->createCsrfGuardMiddleware(false, false, null, $excludePath)->process(
+            $this->createServerRequest(['csrf_token' => 'csrf_token']),
+            $this->createFinalHandler(false)
+        );
+
+        $this->assertSame($success ? 200 : 400, $response->getStatusCode());
+    }
+
     private function createCsrfGuardMiddleware(
         bool $validCsrfToken = true,
         bool $newPublicKey = false,
-        ?PublicKeyProviderInterface $publicKeyProvider = null
+        ?PublicKeyProviderInterface $publicKeyProvider = null,
+        ?string $excludePath = null
     ) : CsrfGuardMiddleware {
         $cookie = new Cookie('csrf_guard');
 
@@ -152,7 +173,8 @@ final class CsrfGuardMiddlewareTest extends TestCase
             'csrf_guard',
             'csrf_token',
             'csrf_token',
-            $publicKeyProvider
+            $publicKeyProvider,
+            null !== $excludePath ? [$excludePath] : []
         );
     }
 
@@ -168,7 +190,7 @@ final class CsrfGuardMiddlewareTest extends TestCase
         return new ServerRequest(
             [],
             [],
-            null,
+            '/foobar',
             null === $postData ? 'GET' : 'POST',
             $body,
             $json ? ['content-type' => 'application/json'] : [],
@@ -178,11 +200,15 @@ final class CsrfGuardMiddlewareTest extends TestCase
         );
     }
 
-    private function createFinalHandler() : RequestHandlerInterface
+    private function createFinalHandler(bool $expectToken = true) : RequestHandlerInterface
     {
         $handler = $this->prophesize(RequestHandlerInterface::class);
-        $handler->handle(Argument::that(function (ServerRequestInterface $request) : bool {
-            return $request->getAttribute('csrf_token') === 'csrf_token';
+        $handler->handle(Argument::that(function (ServerRequestInterface $request) use ($expectToken) : bool {
+            if ($expectToken) {
+                return $request->getAttribute('csrf_token') === 'csrf_token';
+            }
+
+            return null === $request->getAttribute('csrf_token');
         }))->willReturn(new EmptyResponse(200));
 
         return $handler->reveal();

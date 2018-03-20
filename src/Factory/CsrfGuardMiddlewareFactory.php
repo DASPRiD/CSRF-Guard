@@ -20,6 +20,13 @@ final class CsrfGuardMiddlewareFactory
             $publicKeyProvider = $container->get($config->getString('public_key_provider'));
         }
 
+        $excludePaths = [];
+        $excludePathConfig = $config->getChildren('exclude_paths', []);
+
+        foreach ($excludePathConfig as $excludePath) {
+            $excludePaths[] = $excludePath->getString();
+        }
+
         return new CsrfGuardMiddleware(
             $container->get(CookieManagerInterface::class),
             $container->get(CsrfTokenManagerInterface::class),
@@ -27,7 +34,8 @@ final class CsrfGuardMiddlewareFactory
             $config->getString('cookie_name'),
             $config->getString('token_attribute_name'),
             $config->getString('request_token_name'),
-            $publicKeyProvider
+            $publicKeyProvider,
+            $excludePaths
         );
     }
 }

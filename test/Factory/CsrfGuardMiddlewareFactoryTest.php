@@ -23,6 +23,10 @@ final class CsrfGuardMiddlewareFactoryTest extends TestCase
                 'request_token_name' => 'csrf_token',
                 'failure_handler' => 'fh',
                 'public_key_provider' => 'pkp',
+                'exclude_paths' => [
+                    '/foo',
+                    '/bar',
+                ],
             ],
         ]);
 
@@ -46,5 +50,6 @@ final class CsrfGuardMiddlewareFactoryTest extends TestCase
         $this->assertAttributeSame($csrfTokenManager, 'csrfTokenManager', $middleware);
         $this->assertAttributeSame($failureHandler, 'failureHandler', $middleware);
         $this->assertAttributeSame($publicKeyProvider, 'publicKeyProvider', $middleware);
+        $this->assertAttributeSame(['/foo', '/bar'], 'excludePaths', $middleware);
     }
 }

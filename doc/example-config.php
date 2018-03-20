@@ -16,5 +16,9 @@ return [
         'request_token_name' => 'csrf_token',
         'failure_handler' => Some\Csrf\FailureMiddleware::class,
         'public_key_provider' => Some\PublicKey\Provider::class, // or null
+        // Any number of path prefixes you want to exclude from CSRF protection like APIs
+        'exclude_paths' => [
+            '/api/'
+        ],
     ],
 ];

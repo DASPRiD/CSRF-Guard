@@ -41,6 +41,15 @@ Finally, you need to add a CSRF token to every `POST`, `PUT` or `DELETE` request
 have all factories registered, you can access get the CSRF token through the request object through the key defiend in
 the config.
 
+## Ignoring specific paths
+
+Sometimes you may want to exclude specific paths from CSRF checks, like for instance API methods. To do so, you can
+specify an unlimited number of path prefixes to exclude from CSRF checks via hte `exclude_paths` array option. Each
+request which path does begin with one of the strings listed there will not be treated by the middleware.
+
+This means that paths being matched by that will not receive a CSRF token in their request handlers and no CSRF cookies
+will be emitted.  
+
 ## Public key providers
 
 As CSRF tokens are always created with both a public and a private key, the public key is, by default, generated for you

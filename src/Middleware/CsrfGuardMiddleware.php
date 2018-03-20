@@ -48,6 +48,11 @@ final class CsrfGuardMiddleware implements MiddlewareInterface
      */
     private $publicKeyProvider;
 
+    /**
+     * @var string[]
+     */
+    private $excludePaths;
+
     public function __construct(
         CookieManagerInterface $cookieManager,
         CsrfTokenManagerInterface $csrfTokenManager,
@@ -55,7 +60,8 @@ final class CsrfGuardMiddleware implements MiddlewareInterface
         string $cookieName,
         string $tokenAttributeName,
         string $requestTokenName,
-        ?PublicKeyProviderInterface $publicKeyProvider = null
+        ?PublicKeyProviderInterface $publicKeyProvider = null,
+        array $excludePaths = []
     ) {
         $this->cookieManager = $cookieManager;
         $this->csrfTokenManager = $csrfTokenManager;
@@ -64,10 +70,19 @@ final class CsrfGuardMiddleware implements MiddlewareInterface
         $this->tokenAttributeName = $tokenAttributeName;
         $this->requestTokenName = $requestTokenName;
         $this->publicKeyProvider = $publicKeyProvider;
+        $this->excludePaths = $excludePaths;
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler) : ResponseInterface
     {
+        $path = $request->getUri()->getPath();
+
+        foreach ($this->excludePaths as $excludePath) {
+            if (0 === strpos($path, $excludePath)) {
+                return $handler->handle($request);
+            }
+        }
+
         $publicKey = null;
         $providerKeyUsed = true;
 
